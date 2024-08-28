@@ -1,0 +1,109 @@
+runLitpScript two-node-std.inc
+
+# Replicate what is being done in the unit tests 
+# 
+# >>> Case 1: install a package that requires another package, this should be successful
+
+litp create -t package -p /software/items/package1 -o name="package1"
+litp create -t package -p /software/items/package2 -o name="package2" requires="package1"
+
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package1 -s /software/items/package1
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package2 -s /software/items/package2
+
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/package1 -s /software/items/package1
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/package2 -s /software/items/package2
+
+litp inherit -p /ms/items/package1 -s /software/items/package1
+litp inherit -p /ms/items/package2 -s /software/items/package2
+
+litp create_plan 
+litp run_plan
+
+# >>> Case 2: replace a package that is required by another package, this should be successful
+
+litp create -t package -p /software/items/package_rsyslog       -o name="rsyslog8"       replaces="rsyslog7"
+litp create -t package -p /software/items/package_elasticsearch -o name="elsasticsearch" requires="rsyslog8"
+
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package_rsyslog       -s /software/items/package_rsyslog
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package_elasticsearch -s /software/items/package_elasticsearch
+
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/package_rsyslog       -s /software/items/package_rsyslog
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/package_elasticsearch -s /software/items/package_elasticsearch
+
+litp inherit -p /ms/items/package_rsyslog       -s /software/items/package_rsyslog
+litp inherit -p /ms/items/package_elasticsearch -s /software/items/package_elasticsearch
+
+litp create_plan 
+litp run_plan
+
+# >>> Case 3: update the requires for a package, model this new requirements first, this should be successful
+
+litp create -t package -p /software/items/package_liblogging  -o name="liblogging"
+litp update            -p /software/items/package_rsyslog     -o requires="liblogging"
+
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package_liblogging -s /software/items/package_liblogging
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/package_liblogging -s /software/items/package_liblogging
+litp inherit -p /ms/items/package_liblogging                                              -s /software/items/package_liblogging
+
+#--------------------------#
+#---- Check Validation ----#
+#--------------------------#
+
+### Package API : should be caught by validation before create plan ... ###
+
+# >>> Case 1: try to make package require itself
+
+let __err_self_require --err_type ValidationError --err_message 'Package "package3" cannot require itself.'
+assertError __err_self_require create -t package -p /software/items/package3 -o name="package3" requires="package3"
+
+# >>> Case 2: try to make duplicate requirements 
+
+let __err_duplicates --err_type ValidationError --err_message 'Package "p3" has duplicated requirements. Duplicate package requires are : "bar" "httpd"' 
+assertError __err_duplicates create -t package -p /software/items/p3 -o name="p3" requires="httpd,httpd,bar,bar"
+
+### Package Plugin ###
+
+# >>> Case 3: try to create a package with a requirement that is not modelled 
+
+litp create -t package -p /software/items/package3 -o name="package3" requires="not_modelled" 
+litp inherit -p /ms/items/package3 -s /software/items/package3
+
+let __err_case_3_1 --err_type ValidationError --err_message 'Package "not_modelled", required by "package3", is not inherited to this node.'
+assertError __err_case_3_1 create_plan
+
+# >>> Case 4: try to remove a package that is required by another package and already modelled
+# >>>         try to remove earlier modelled package from Case 1.
+
+litp remove -p /ms/items/package1
+
+let __err_case_4_1 --err_type ValidationError --err_message 'Package "package1" is required by "package2" and cannot be removed.'
+assertError __err_case_4_1 create_plan
+
+# >>> Case 5: circular dependence level 1
+
+litp create -t package -p /software/items/package_X -o name="package_X" requires="package_Y"
+litp create -t package -p /software/items/package_Y -o name="package_Y" requires="package_X"
+
+litp inherit -p /ms/items/package_X -s /software/items/package_X
+litp inherit -p /ms/items/package_Y -s /software/items/package_Y
+
+let __err_case_5_1 --err_type ValidationError --err_message 'A cyclical requires exists with package(s) "package_Y" defined by "requires" property'
+let __err_case_5_2 --err_type ValidationError --err_message 'A cyclical requires exists with package(s) "package_X" defined by "requires" property'
+assertError __err_case_5_1 __err_case_5_2 create_plan
+
+# >>> Case 6: circular dependence level 2
+
+litp create -t package -p /software/items/package_A -o name="package_A" requires="package_B"
+litp create -t package -p /software/items/package_B -o name="package_B" requires="package_C"
+litp create -t package -p /software/items/package_C -o name="package_C" requires="package_A"
+
+litp inherit -p /ms/items/package_A -s /software/items/package_A
+litp inherit -p /ms/items/package_B -s /software/items/package_B
+litp inherit -p /ms/items/package_C -s /software/items/package_C
+
+let __err_case_6_1 --err_type ValidationError --err_message 'A cyclical requires exists with package(s) "package_A" defined by "requires" property'
+let __err_case_6_2 --err_type ValidationError --err_message 'A cyclical requires exists with package(s) "package_B" defined by "requires" property'
+let __err_case_6_3 --err_type ValidationError --err_message 'A cyclical requires exists with package(s) "package_C" defined by "requires" property'
+
+assertError __err_case_6_1 __err_case_6_2 __err_case_6_3 create_plan
+

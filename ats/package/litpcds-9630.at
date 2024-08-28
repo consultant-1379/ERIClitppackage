@@ -1,0 +1,24 @@
+runLitpScript two-node-std.inc
+
+# Case 1: try to replace a package that does not exist in the model
+
+litp create -t package -p /software/items/package_rsyslog -o name="rsyslog8" replaces="rsyslog7"
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package_rsyslog -s /software/items/package_rsyslog
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/package_rsyslog -s /software/items/package_rsyslog
+litp inherit -p /ms/items/package_rsyslog -s /software/items/package_rsyslog
+
+litp create_plan
+litp run_plan
+
+# Case 2: try to replace a package that exists in the model
+
+litp create -t package -p /software/items/package2_rsyslog -o name="rsyslog9" replaces="rsyslog8"
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package2_rsyslog -s /software/items/package2_rsyslog
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/package2_rsyslog -s /software/items/package2_rsyslog
+litp inherit -p /ms/items/package2_rsyslog -s /software/items/package2_rsyslog
+
+let __err_1 --err_type ValidationError --err_message 'Replacement of a modelled package "rsyslog8" with "rsyslog9" is not currently supported.'
+let __err_2 --err_type ValidationError --err_message 'Replacement of a modelled package "rsyslog8" with "rsyslog9" is not currently supported.'
+let __err_3 --err_type ValidationError --err_message 'Replacement of a modelled package "rsyslog8" with "rsyslog9" is not currently supported.'
+
+assertError __err_1 __err_2 __err_3 create_plan

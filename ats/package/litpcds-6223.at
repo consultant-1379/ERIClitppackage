@@ -1,0 +1,23 @@
+runLitpScript two-node-std.inc
+
+litp create -p /software/items/pkg1 -t package -o name=vim arch=x86_64
+litp inherit -p /ms/items/pkg1 -s /software/items/pkg1
+litp create_plan
+assertConfigTask ms1 litp::versionlock ms1 /ms excluded_packages='[]'
+
+litp update -p /software/items/pkg1 -o version=1 release=1
+litp create_plan
+assertConfigTask ms1 litp::versionlock ms1 /ms excluded_packages='["0:vim-1-1"]'
+litp run_plan
+
+
+#LITPCDS-8580
+litp create -t package -p /software/items/cups -o name=cups repository=OS version=9.2.15 release=39.el6
+litp inherit -p /ms/items/pkg3 -s /software/items/cups
+litp create_plan
+assertConfigTask ms1 litp::versionlock ms1 /ms excluded_packages='["0:vim-1-1", "0:cups-9.2.15-39.el6"]'
+failConfigTask	package ms1 /ms/items/pkg3
+litp run_plan
+litp update -p /software/items/cups -d version,release
+litp create_plan
+assertConfigTask ms1 litp::versionlock ms1 /ms excluded_packages='["0:vim-1-1"]'

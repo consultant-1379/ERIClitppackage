@@ -1,0 +1,16 @@
+runLitpScript two-node-std.inc
+
+litp create -p /software/items/pkg1 -t package -o name=vim arch=x86_64 version=1-1
+litp inherit -p /ms/items/pkg1 -s /software/items/pkg1
+litp create_plan
+litp run_plan
+
+litp update -p /software/items/pkg1 -o arch=i686
+assertError create_plan
+# ValidationError: can't update package architecture
+
+litp update -p /software/items/pkg1 -o arch=x86_64 version=2-1
+assertState -p /ms/items/pkg1 Updated
+litp create_plan
+# no error: version can be updated
+litp run_plan

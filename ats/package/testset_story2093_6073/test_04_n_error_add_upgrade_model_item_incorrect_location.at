@@ -1,0 +1,18 @@
+# This test will verify that a validation error is returned
+# when the user attempts to add an upgrade model item under anything
+# apart from a node, cluster, or a deployment.
+
+runLitpScript two-node-std.inc
+
+assertError --err_type InvalidLocationError --err_message "Upgrade can only be run on deployments, clusters or nodes" upgrade -p /snapshots
+
+assertError --err_type InvalidLocationError --err_message "Upgrade can only be run on deployments, clusters or nodes" upgrade -p /software
+
+assertError --err_type InvalidLocationError --err_message "Upgrade can only be run on deployments, clusters or nodes" upgrade -p /
+
+assertError --err_type InvalidLocationError --err_message "Upgrade can only be run on deployments, clusters or nodes" upgrade -p /deployments/site1/clusters/cluster1/nodes/node1/file_systems 
+
+litp upgrade -p /deployments/site1
+litp upgrade -p /deployments/site1/clusters/cluster1
+litp upgrade -p /deployments/site1/clusters/cluster1/nodes/node1
+litp upgrade -p /deployments/site1/clusters/cluster1/nodes/node2

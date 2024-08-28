@@ -1,0 +1,10 @@
+*.pyc
+*.swp
+target
+.settings
+.pydevproject
+.project
+.coverage
+.idea
+coverage.xml
+nosetests.xml

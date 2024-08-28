@@ -1,0 +1,36 @@
+#        Description:
+#            This test will verify that the hash property gets populated every
+#            time litp upgrade is run.
+#        Actions:
+#            1. Add an upgrade item under the deployment.
+#            2. Get the hash values for each nodes upgrade item.
+#            3. Verify that nodes get the same hash value.
+#            5. Get a new hash values by running litp upgrade
+#            6. Verify elements in list are unique.
+#            7. Remove the upgrade items from model.
+#        Result:
+#            The hash property gets populated every time litp upgrade is run.
+
+
+runLitpScript two-node-std.inc
+
+litp upgrade -p /deployments/site1
+
+getProperty __hash_node1 /deployments/site1/clusters/cluster1/nodes/node1/upgrade hash
+getProperty __hash_node2 /deployments/site1/clusters/cluster1/nodes/node2/upgrade hash
+
+assertValuesEqual __hash_node1 __hash_node2
+
+litp upgrade -p /deployments/site1/clusters/cluster1/nodes/node1
+
+getProperty __hash /deployments/site1/clusters/cluster1/nodes/node1/upgrade hash
+
+# the hash property takes the md5 of the current time with a precision of 0.01s
+# adding an extension that sleeps a bit to make sure the hash changes
+add-extensions extensions
+
+litp upgrade -p /deployments/site1/clusters/cluster1/nodes/node1
+
+getProperty __hash2 /deployments/site1/clusters/cluster1/nodes/node1/upgrade hash
+
+assertValuesNotEqual __hash __hash2

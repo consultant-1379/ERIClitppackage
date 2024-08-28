@@ -1,0 +1,23 @@
+runLitpScript three-node-vcs.inc
+
+# return custom packages for node in create_plan
+# node1 has EXTRlitpmcollective_CXP9031034, EXTRlitpfacter_CXP9031032, EXTRlitpmcollectivecommon_CXP9031353
+
+# mock mcollective to return node upgrades
+add-plugins plugins/patch_mcollective_plugin_mco
+
+# create something easy to create a plan and make everything applied before starting
+litp create -p /software/items/pkg1 -t package -o name=vim arch=x86_64 version=1-1
+litp inherit -p /ms/items/pkg1 -s /software/items/pkg1
+litp create_plan
+litp run_plan
+
+# now start upgrade
+litp upgrade -p /deployments/site1
+
+# this AT just checks that the plan can be created without errors in the plan builder
+litp create_plan
+
+let __task1 CallbackTask _upgrade_mco_and_wait /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __task2 CallbackTask _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+assertTaskBeforeTask __task1 __task2

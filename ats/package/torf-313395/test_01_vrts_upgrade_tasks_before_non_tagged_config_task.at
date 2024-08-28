@@ -1,0 +1,74 @@
+runLitpScript ../three-node-vcs.inc
+
+# create something easy to create a plan and make everything applied before starting
+litp create -p /software/items/pkg1 -t package -o name=vim arch=x86_64 version=1-1
+litp inherit -p /ms/items/pkg1 -s /software/items/pkg1
+litp create_plan
+litp run_plan
+
+# now start upgrade
+litp upgrade -p /deployments/site1
+
+# return custom packages for each node in create_plan
+# node1 has VRTSvxvm and no kernel
+# node2 has no VRTSvxvm and kernel
+
+add-extensions extensions/dummy_313395_extension
+add-plugins plugins/dummy_313395_plugin/
+
+# Create dummy tasks
+litp create -t torf-313395 -p /software/items/foo -o prop='node_prop'
+
+litp inherit -s /software/items/foo -p /deployments/site1/clusters/cluster1/nodes/node1/items/foo
+litp inherit -s /software/items/foo -p /deployments/site1/clusters/cluster1/nodes/node2/items/foo
+
+# TORF-317522 Add package to a node to create a versionlock task
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg1 -s /software/items/pkg1
+
+# this AT just checks that the plan can be created without errors and in the plan builder, it also checks the order of tasks
+litp create_plan
+
+# Node 1 VRTS Upgrade tasks - VxVM and other VRTS packages upgraded
+let __disable_puppet_task CallbackTask _disable_puppet /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __remove_lvm_filter CallbackTask _remove_lvm_filter /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __disable_dmp_task CallbackTask dmp_support_callback_task /deployments/site1/clusters/cluster1/nodes/node1
+let __reboot_node_and_wait CallbackTask _reboot_node_and_wait /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __execute_rpc_in_callback_task CallbackTask _execute_rpc_in_callback_task /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __upgrade_n1_callback_task CallbackTask _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __enable_dmp_task CallbackTask dmp_support_callback_task /deployments/site1/clusters/cluster1/nodes/node1
+let __add_lvm_filter CallbackTask _add_lvm_filter /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __reboot_node_and_wait CallbackTask _reboot_node_and_wait /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+let __enable_puppet CallbackTask _enable_puppet /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+
+# Node 2 VRTS Upgrade tasks - No VxVM upgrade, other VRTS packages upgraded
+let __disable_vcs_servicesk_task CallbackTask _disable_vcs_services /deployments/site1/clusters/cluster1/nodes/node2/upgrade
+let __upgrade_n2_callback_task CallbackTask _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node2/upgrade
+let __enable_vcs_services_start_puppet_task CallbackTask _enable_vcs_services_start_puppet /deployments/site1/clusters/cluster1/nodes/node2/upgrade
+
+# Dummy ConfigTasks
+let __dummy_node1_task ConfigTask node1 cluster_resource resource_title_node_prop /deployments/site1/clusters/cluster1/nodes/node1/items/foo
+let __dummy_node2_task ConfigTask node2 cluster_resource resource_title_node_prop /deployments/site1/clusters/cluster1/nodes/node2/items/foo
+
+# Assert order of upgrade tasks on node1 - VxVM and other VRTS packages upgraded
+assertTaskBeforeTask __disable_puppet_task __remove_lvm_filter
+assertTaskBeforeTask __remove_lvm_filter __disable_dmp_task
+assertTaskBeforeTask __disable_dmp_task __reboot_node_and_wait
+assertTaskBeforeTask __reboot_node_and_wait __execute_rpc_in_callback_task
+assertTaskBeforeTask __execute_rpc_in_callback_task __upgrade_n1_callback_task
+assertTaskBeforeTask __upgrade_n1_callback_task __add_lvm_filter
+assertTaskBeforeTask  __add_lvm_filter __enable_puppet
+
+# Assert order of upgrade tasks on node2 - No VxVM upgrade, other VRTS packages upgraded
+assertTaskBeforeTask __disable_vcs_servicesk_task __upgrade_n2_callback_task
+assertTaskBeforeTask __upgrade_n2_callback_task __enable_vcs_services_start_puppet_task
+
+#TORF-313395
+# Assert all upgrade tasks occur before ConfigTask on node1
+assertTaskBeforeTask __enable_puppet __dummy_node1_task
+
+# Assert all upgrade tasks occur before ConfigTask on node2
+assertTaskBeforeTask __disable_vcs_servicesk_task __dummy_node2_task
+assertTaskBeforeTask __upgrade_n2_callback_task __dummy_node2_task
+
+#TORF-317522 Check there is a versionlock task
+assertConfigTask node1 litp::versionlock node1 /deployments/site1/clusters/cluster1/nodes/node1 excluded_packages='["0:vim-1-1"]'

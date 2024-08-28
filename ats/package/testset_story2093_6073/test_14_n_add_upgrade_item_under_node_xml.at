@@ -1,0 +1,29 @@
+#Description:
+#    This test will verify that the user cannot add an upgrade item
+#    under a node using xml.
+#Actions:
+#    1. Add an upgrade to the node.
+#    2. Export the node.
+#    3. Verify that the upgrade wasn't exported.
+#    4. Attempt to export the upgrade.
+#    5. Verify that an error is returned.
+#    6. Remove the upgrade item from model.
+#    7. Verify user can successfully load the upgrade.
+#Result:
+#    A user cannot add an upgrade item under a node using xml.
+
+runLitpScript two-node-std.inc
+
+litp upgrade -p /deployments/site1/clusters/cluster1/nodes/node1
+
+litp export -p /deployments/site1/clusters/cluster1/nodes/node1  -f /tmp/xml_story_2093_test_14_out.xml
+assertFileContents xml_story_2093_test_14_out.xml  /tmp/xml_story_2093_test_14_out.xml
+
+assertError --err_type MethodNotAllowedError --err_vpath /litp/upgrade  export -p /deployments/site1/clusters/cluster1/nodes/node1/upgrade  -f /tmp/xml_story_2093_test_14_out.xml
+
+litp remove  -p /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+
+litp load -p /deployments/site1/clusters/cluster1/nodes/node1 -f xml_story_2093_test_14_in.xml
+
+assertState -p /deployments/site1/clusters/cluster1/nodes/node1/upgrade Initial
+

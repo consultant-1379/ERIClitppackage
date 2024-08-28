@@ -1,0 +1,9 @@
+runLitpScript two-node-std.inc
+litp create -p /software/items/package_vim -t package -o name="vim-enhanced"
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/package_vim -s /software/items/package_vim
+
+litp create_plan
+litp run_plan
+
+assertState -p /deployments/site1/clusters/cluster1/nodes/node1/items/package_vim Applied
+assertError update -p /deployments/site1/clusters/cluster1/nodes/node1/items/package_vim -o name="trololo"

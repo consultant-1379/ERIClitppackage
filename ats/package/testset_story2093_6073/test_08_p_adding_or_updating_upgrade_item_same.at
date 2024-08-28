@@ -1,0 +1,35 @@
+#        Description:
+#            This test will verify that adding or updating an upgrade item under
+#            a node or a deployment will have the same effect, given the same
+#            set of available upgrades.
+#        Result:
+#            Updating an upgrade item under a node or a deployment will trigger
+#            an upgrade.
+
+
+runLitpScript two-node-std.inc
+
+add-plugins ../plugins/patch_mcollective_plugin_one_node
+litp create -p /software/items/pkg1 -t package -o name=vim
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg1 -s /software/items/pkg1
+litp create_plan
+litp run_plan
+
+litp upgrade -p /deployments/site1/clusters/cluster1/nodes/node1
+
+litp create_plan
+
+assertCallbackTask  _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+assertNoCallbackTask  _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node2/upgrade
+assertPhaseLength 0 1
+assertNone -p /plans/plan/phases/2
+
+litp remove_plan
+
+litp upgrade -p /deployments/site1
+litp create_plan
+
+assertCallbackTask  _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node1/upgrade
+assertNoCallbackTask  _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node2/upgrade
+assertNone -p /plans/plan/phases/2
+assertPhaseLength 0 1

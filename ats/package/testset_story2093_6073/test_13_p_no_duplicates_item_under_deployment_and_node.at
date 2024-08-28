@@ -1,0 +1,24 @@
+#        Description:
+#            This test will verify that duplicate tasks are not created if an
+#            upgrade item is added under both the deployment and a node.
+#        Result:
+#            Duplicate tasks are not created if an upgrade item is added under
+#            both the deployment and a node.
+
+runLitpScript two-node-std.inc
+
+add-plugins ../plugins/patch_mcollective_plugin
+litp create -p /software/items/pkg1 -t package -o name=vim
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg1 -s /software/items/pkg1
+litp create_plan
+litp run_plan
+
+litp upgrade -p /deployments/site1
+litp upgrade -p /deployments/site1/clusters/cluster1/nodes/node1
+
+litp create_plan
+
+assertPhaseLength 0 2
+assertTask 0 _upgrade_callback_task node1 /deployments/site1/clusters/cluster1/nodes/node1/upgrade Initial
+assertTask 0 _upgrade_callback_task node1 /deployments/site1/clusters/cluster1/nodes/node2/upgrade Initial
+

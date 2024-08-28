@@ -1,0 +1,61 @@
+# To verify that conflicting tasks are not created when a plan contains both
+# a service group expansion that would add a package to a node and a service
+# group removal that would remove the same package from the that node
+
+litp create -t os-profile -p /software/profiles/rhel_6 -o name='sample-profile' path='/profiles/node-iso'
+litp create -t system -p /infrastructure/systems/sys1 -o system_name='sys1'
+litp create -t system -p /infrastructure/systems/sys2 -o system_name='sys2'
+litp create -t network -p /infrastructure/networking/networks/nodes -o subnet='10.4.23.0/24' litp_management='true' name='nodes'
+litp create -t network -p /infrastructure/networking/networks/heartbeat1 -o name="hb1"
+litp create -t network -p /infrastructure/networking/networks/heartbeat2 -o name="hb2"
+
+litp create -t network-interface -p /ms/network_interfaces/if0 -o network_name='nodes' ipaddress='10.4.23.50'
+litp create -t storage-profile-base -p /infrastructure/storage/storage_profiles/profile_1
+litp create -t deployment -p /deployments/site1
+litp create -t vcs-cluster -p /deployments/site1/clusters/cluster1 -o cluster_type="sfha" low_prio_net="mgmt" llt_nets="hb1,hb2" cluster_id="55"
+
+litp create -t node -p /deployments/site1/clusters/cluster1/nodes/node1 -o hostname='node1'
+litp create -t node -p /deployments/site1/clusters/cluster1/nodes/node2 -o hostname='node2'
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/system -s /infrastructure/systems/sys1
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/system -s /infrastructure/systems/sys2
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/os -s /software/profiles/rhel_6
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/os -s /software/profiles/rhel_6
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/storage_profile -s /infrastructure/storage/storage_profiles/profile_1
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/storage_profile -s /infrastructure/storage/storage_profiles/profile_1
+litp create -t network-interface -p /deployments/site1/clusters/cluster1/nodes/node1/network_interfaces/if0 -o network_name='nodes' ipaddress='10.4.23.51'
+litp create -t network-interface -p /deployments/site1/clusters/cluster1/nodes/node2/network_interfaces/if0 -o network_name='nodes' ipaddress='10.4.23.52'
+litp create -t network-interface -p /deployments/site1/clusters/cluster1/nodes/node1/network_interfaces/if1 -o network_name="hb1"
+litp create -t network-interface -p /deployments/site1/clusters/cluster1/nodes/node2/network_interfaces/if1 -o network_name="hb1"
+litp create -t network-interface -p /deployments/site1/clusters/cluster1/nodes/node1/network_interfaces/if2 -o network_name="hb2"
+litp create -t network-interface -p /deployments/site1/clusters/cluster1/nodes/node2/network_interfaces/if2 -o network_name="hb2"
+
+litp create -p /software/items/pkg1 -t package -o name=vim arch=x86_64
+
+litp create -p /software/services/serv1 -t service -o service_name='serv1'
+litp inherit -p /software/services/serv1/packages/pkg1 -s /software/items/pkg1
+
+# Create 2 single node service groups to add pkg1 on node1 and node2
+litp create -p  /deployments/site1/clusters/cluster1/services/cs1 -t vcs-clustered-service -o active=1 standby=0 name='cs1' node_list='node1'
+litp inherit -p  /deployments/site1/clusters/cluster1/services/cs1/applications/app1 -s /software/services/serv1
+litp create -p  /deployments/site1/clusters/cluster1/services/cs2 -t vcs-clustered-service -o active=1 standby=0 name='cs2' node_list='node2'
+litp inherit -p  /deployments/site1/clusters/cluster1/services/cs2/applications/app1 -s /software/services/serv1
+
+litp create_plan
+litp run_plan
+
+# Expand service group cs1 to node2. Should add pkg1 on node2
+litp update -p  /deployments/site1/clusters/cluster1/services/cs1 -o active=2 node_list='node1,node2'
+
+# Remove service group cs2. Should remove pkg1 from node2
+litp remove -p  /deployments/site1/clusters/cluster1/services/cs2
+
+litp create_plan
+
+# Verify there is a package update config task for node2
+# LITPCDS-12507: Don't have a replacement task if a new task on the same node
+# with the same call_type and call_id, as a persisted task is present in the
+# plan. Here we have this persisted task, which conflicts with a new task:
+# <ConfigTask node2 /deployments/site1/clusters/cluster1/services/cs2/applications/app1/packages/pkg1
+# - package: vim [Success]; id=node2__package__vim, ...)>
+assertNumberConfigTasks node2 1
+assertConfigTask node2 package vim /deployments/site1/clusters/cluster1/services/cs1/applications/app1/packages/pkg1 require='[]' ensure='installed'

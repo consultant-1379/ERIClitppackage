@@ -1,0 +1,23 @@
+#Description:
+#    This test will verify that the requires_reboot property is set to
+#    true when create_plan is run when a reboot is required in the
+#    upgrade.
+#Result:
+#    The requires_reboot property is set to true when create_plan is
+#    run when a reboot is required in an upgrade.
+
+runLitpScript two-node-std.inc
+
+add-plugins ../plugins/patch_kernel_package
+litp create -p /software/items/pkg1 -t package -o name=vim
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg1 -s /software/items/pkg1
+litp create_plan
+litp run_plan
+
+litp upgrade -p /deployments/site1
+
+litp create_plan
+
+assertProperty /deployments/site1/clusters/cluster1/nodes/node1/upgrade -o requires_reboot=true
+assertProperty /deployments/site1/clusters/cluster1/nodes/node2/upgrade -o requires_reboot=true
+

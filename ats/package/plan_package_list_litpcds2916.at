@@ -1,0 +1,120 @@
+runLitpScript two-node-std.inc
+
+# test1
+
+litp create -p /software/items/p_x86 -t package -o name=package arch=x86
+litp create -p /software/items/p_x86_64 -t package -o name=package arch=x86_64
+litp inherit -p /ms/items/p_x86 -s /software/items/p_x86
+litp inherit -p /ms/items/p_x86_64 -s /software/items/p_x86_64
+
+assertError create_plan
+
+litp remove -p /ms/items/p_x86
+litp remove -p /ms/items/p_x86_64
+litp remove -p /software/items/p_x86_64
+litp remove -p /software/items/p_x86
+
+
+# test2
+
+litp create -p /software/items/pl -t package-list -o name=pl
+litp create -p /software/items/pl/packages/p_x86 -t package -o name=package arch=x86
+litp create -p /software/items/pl/packages/p_x86_64 -t package -o name=package arch=x86_64
+litp inherit -p /ms/items/pl -s /software/items/pl
+
+assertError create_plan
+
+litp remove -p /ms/items/pl
+litp remove -p /software/items/pl/packages/p_x86_64
+litp remove -p /software/items/pl/packages/p_x86
+litp remove -p /software/items/pl
+
+
+# test3
+
+litp create -p /software/items/pl1 -t package-list -o name=pl1
+litp create -p /software/items/pl1/packages/p_x86 -t package -o name=package arch=x86
+litp create -p /software/items/pl2 -t package-list -o name=pl2
+litp create -p /software/items/pl2/packages/p_x86_64 -t package -o name=package arch=x86_64
+litp inherit -p /ms/items/pl1 -s /software/items/pl1
+litp inherit -p /ms/items/pl2 -s /software/items/pl2
+
+assertError create_plan
+
+litp remove -p /ms/items/pl2
+litp remove -p /ms/items/pl1
+litp remove -p /software/items/pl2/packages/p_x86_64
+litp remove -p /software/items/pl2
+litp remove -p /software/items/pl1/packages/p_x86
+litp remove -p /software/items/pl1
+
+
+# test 4
+
+litp create -p /software/items/p_x86 -t package -o name=package arch=x86
+litp inherit -p /ms/items/p_x86 -s /software/items/p_x86
+
+litp create_plan
+litp run_plan
+
+litp create -p /software/items/p_x86_64 -t package -o name=package arch=x86_64
+litp inherit -p /ms/items/p_x86_64 -s /software/items/p_x86_64
+
+assertError create_plan
+
+litp remove -p /ms/items/p_x86
+litp remove -p /ms/items/p_x86_64
+litp remove -p /software/items/p_x86_64
+
+litp create_plan
+litp run_plan
+
+
+# test 5
+
+litp inherit -p /ms/items/p_x86 -s /software/items/p_x86
+
+litp create_plan
+litp run_plan
+
+# LITPCDS-12507: Don't have a replacement task if a new task on the same node
+# with the same call_type and call_id, as a persisted task is present in the
+# plan. Here, the replacement task for /ms/items/p_x86 was not being returned
+# as a persisted task for /ms/items/p_x86_64 had the same node, call_type and
+# call_id (so have a different call_id for the new task).
+litp create -p /software/items/p_x86_64 -t package -o name=package_64 arch=x86_64
+litp inherit -p /ms/items/p_x86_64 -s /software/items/p_x86_64
+litp remove -p /ms/items/p_x86
+
+litp create_plan
+assertTask 0 package ms1 /ms/items/p_x86_64
+litp run_plan
+
+litp remove -p /ms/items/p_x86_64
+litp remove -p /software/items/p_x86
+
+litp create_plan
+litp run_plan
+
+
+# test 6
+
+litp create -p /software/items/p_x86 -t package -o name=package arch=x86
+litp inherit -p /ms/items/p_x86 -s /software/items/p_x86
+
+litp create_plan
+litp run_plan
+
+litp inherit -p /ms/items/p_x86_64 -s /software/items/p_x86_64
+litp remove -p /ms/items/p_x86
+
+litp create_plan
+assertTask 0 package ms1 /ms/items/p_x86_64
+litp run_plan
+
+litp remove -p /ms/items/p_x86_64
+litp remove -p /software/items/p_x86
+
+litp create_plan
+litp run_plan
+

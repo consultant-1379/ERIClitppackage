@@ -1,0 +1,9 @@
+# Check that LITP prevents update of an installed package name
+
+runLitpScript two-node-std.inc
+
+litp create -p /software/items/telnet -t package -o name=telnet 
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/telnet -s /software/items/telnet 
+litp create_plan
+litp run_plan 
+assertError --err_type InvalidRequestError --err_message "Unable to modify readonly property: name"  update -p /software/items/telnet -o name=nano

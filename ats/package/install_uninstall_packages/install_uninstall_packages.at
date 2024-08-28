@@ -1,0 +1,16 @@
+# Check if LITP Model is throwing an error when user tries to install two
+# packages that are refering to the same package.
+
+runLitpScript two-node-std.inc
+
+litp create -p /software/items/pkg_list_1 -t package-list -o name=pkg_list_1
+litp create -p /software/items/pkg_list_1/packages/nano -t package -o name=nano
+litp create -p /software/items/pkg_list_1/packages/nano_duplicate -t package -o name=nano
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list_1 -s /software/items/pkg_list_1
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg_list_1 -s /software/items/pkg_list_1
+
+# Check multiple errors
+let __err_1 --err_type ValidationError --err_message 'Create plan failed: Package "nano" is duplicated for node "node1"'
+let __err_2 --err_type ValidationError --err_message 'Create plan failed: Package "nano" is duplicated for node "node2"'
+
+assertError __err_1 __err_2 --errors_length 4 create_plan

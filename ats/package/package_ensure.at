@@ -1,0 +1,96 @@
+#package_ensure
+#=========================================
+#Description:
+# Test packages can be installed with varying property values and then removed successfully
+
+#Actions:
+# 1. Include model setup
+# 2. Create package and inheritance
+# 3. Assert source and reference states then create plan
+# 4. Assert config tasks, run the plan and assert package item state
+# 5. Remove package item, create plan and assert config task
+# 6. Run plan and assert path doesn't exist
+# 7. Create four packages with varying property values and create plan
+# 8. Assert states and create plan
+# 9. Assert config task for each package, ensure properties and run the plan
+# 10. Remove package items, assert state is ForRemoval and run the plan
+# 11. Assert config task for package item removal and run the plan
+# 12. Assert package item cannot be create with incorrect property values
+#Result:
+# Packages can be removed after being installed with varying property values
+
+
+
+# 1. Include model setup
+runLitpScript two-node-std.inc
+
+# 2. Create package and inheritance
+litp create -p /software/items/pkg -t package -o name=pkgname
+litp inherit -p /ms/items/pkg -s /software/items/pkg
+
+# 3. Assert source and reference states then create plan
+assertState -p /software/items/pkg Initial
+assertState  -p /ms/items/pkg Initial
+litp create_plan
+
+# 4. Assert config tasks, run the plan and assert package item state
+assertConfigTask ms1 package pkgname /ms/items/pkg require="[]" ensure="installed"
+assertTask 0 package ms1 /ms/items/pkg
+assertTask 0 litp::versionlock ms1 /ms
+litp run_plan
+assertState -p /ms/items/pkg Applied
+
+# 5. Remove package item, create plan and assert config task
+litp remove -p /ms/items/pkg
+litp create_plan
+assertState -p /ms/items/pkg ForRemoval
+assertConfigTask ms1 package pkgname /ms/items/pkg require="[]" ensure="absent"
+
+# 6. Run plan and assert path doesn't exist
+litp run_plan
+assertNone /ms/items/pkg
+
+# 7. Create four packages with varying property values and create plan
+litp create -p /software/items/pkg1 -t package -o name=pkg1
+litp inherit -p /ms/items/pkg1 -s /software/items/pkg1
+litp create -p /software/items/pkg2 -t package -o name=pkg2 version=latest
+litp inherit -p /ms/items/pkg2 -s /software/items/pkg2
+litp create -p /software/items/pkg3 -t package -o name=pkg3 version=1.0-1
+litp inherit -p /ms/items/pkg3 -s /software/items/pkg3
+litp create -p /software/items/pkg4 -t package -o name=pkg4 version=1.0 release=redhat1
+litp inherit -p /ms/items/pkg4 -s /software/items/pkg4
+
+# 8. Assert states and create plan
+assertState -p /ms/items/pkg1 Initial
+assertState -p /ms/items/pkg2 Initial
+assertState -p /ms/items/pkg3 Initial
+assertState -p /ms/items/pkg4 Initial
+litp create_plan
+
+# 9. Assert config task for each package, ensure properties and run the plan
+assertConfigTask ms1 package pkg1 /ms/items/pkg1 require="[]" ensure="installed"
+assertConfigTask ms1 package pkg2 /ms/items/pkg2 require="[]" ensure="latest"
+assertConfigTask ms1 package pkg3 /ms/items/pkg3 require="[]" ensure="1.0-1"
+assertConfigTask ms1 package pkg4 /ms/items/pkg4 require="[]" ensure="1.0-redhat1"
+litp run_plan
+
+# 10. Remove package items, assert state is ForRemoval and run the plan
+litp remove -p /ms/items/pkg1
+litp remove -p /ms/items/pkg2
+litp remove -p /ms/items/pkg3
+litp remove -p /ms/items/pkg4
+assertState -p /ms/items/pkg1 ForRemoval
+assertState -p /ms/items/pkg2 ForRemoval
+assertState -p /ms/items/pkg3 ForRemoval
+assertState -p /ms/items/pkg4 ForRemoval
+litp create_plan
+
+# 11. Assert config task for package item removal and run the plan
+assertConfigTask ms1 package pkg1 /ms/items/pkg1 require="[]" ensure="absent"
+assertConfigTask ms1 package pkg2 /ms/items/pkg2 require="[]" ensure="absent"
+assertConfigTask ms1 package pkg3 /ms/items/pkg3 require="[]" ensure="absent"
+assertConfigTask ms1 package pkg4 /ms/items/pkg4 require="[]" ensure="absent"
+litp run_plan
+
+# 12. Assert package item cannot be create with incorrect property values
+assertError create -p /software/items/pkgx -t package -o name=pkgx version=latest release=foo

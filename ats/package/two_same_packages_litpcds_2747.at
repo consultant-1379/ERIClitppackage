@@ -1,0 +1,31 @@
+
+runLitpScript two-node-std.inc
+litp create -p /software/items/package_file -t package -o name="file"
+litp create -p /software/items/package_vim -t package -o name="vim-enhanced" 
+litp create -p /software/items/package_vim2 -t package -o name="vim-enhanced" config="keep"
+
+litp create -p /software/items/pack00 -t package-list -o name="vim-nok"
+litp create -p /software/items/pack00/packages/vim1 -t package -o name="vim-enhanced" 
+litp create -p /software/items/pack00/packages/vim2 -t package -o name="vim-enhanced" config="keep"
+
+litp create -p /software/items/pack01 -t package-list -o name="vim-ok"
+litp create -p /software/items/pack01/packages/vim1 -t package -o name="vim-enhanced-1" 
+litp create -p /software/items/pack01/packages/vim2 -t package -o name="vim-enhanced-2" config="keep"
+
+litp create -p /software/items/pack1 -t package-list -o name="amanda"
+litp create -p /software/items/pack1/packages/firefox1 -t package -o name="firefox" 
+litp create -p /software/items/pack1/packages/firefox2 -t package -o name="firefox" config="keep"
+
+litp create -p /software/items/pack2 -t package-list -o name="abc"
+litp create -p /software/items/pack2/packages/firefox3 -t package -o name="firefox" 
+litp create -p /software/items/pack2/packages/firefox4 -t package -o name="firefox" config="keep"
+
+litp create -p /software/items/pack3 -t package-list -o name="xyz"
+litp create -p /software/items/pack3/packages/firefox01 -t package -o name="firefox" 
+litp create -p /software/items/pack3/packages/firefox02 -t package -o name="firefox" config="keep"
+litp create -p /software/items/pack3/packages/firefox03 -t package -o name="telnet" 
+litp create -p /software/items/pack3/packages/firefox04 -t package -o name="telnet" config="keep"
+
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list -s /software/items/pack1
+
+assertError create_plan

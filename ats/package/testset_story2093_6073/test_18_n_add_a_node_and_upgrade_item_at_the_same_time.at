@@ -1,0 +1,31 @@
+## This test will verify that when a user attempts to add a node
+## and an upgrade item at the same time, the node is added but not
+## upgraded.
+add-plugins ../plugins/patch_mcollective_plugin
+
+runLitpScript two-node-std.inc
+litp create -p /software/items/pkg1 -t package -o name=vim
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg1 -s /software/items/pkg1
+litp create_plan
+litp run_plan
+
+#add a new node
+litp create -p /infrastructure/systems/system2093 -t system -o system_name='system2093' 
+litp create -p /infrastructure/systems/system2093/disks/disk0 -t disk -o name='hd0' size='60G' bootable='true' uuid='ee7cf0a0-1922-401b-a1ae-6ec9261484c0' 
+litp create -p /infrastructure/storage/storage_profiles/profile_test2093 -t storage-profile -o volume_driver='lvm'
+litp create -p /infrastructure/storage/storage_profiles/profile_test2093/volume_groups/vg1 -t volume-group -o volume_group_name='vg_root'
+litp create -p /infrastructure/storage/storage_profiles/profile_test2093/volume_groups/vg1/file_systems/root -t file-system -o type='ext4' mount_point='/' size='28G'
+litp create -p /infrastructure/storage/storage_profiles/profile_test2093/volume_groups/vg1/physical_devices/internal -t physical-device -o device_name='hd0'
+
+litp create -p /deployments/site1/clusters/tmp -t cluster 
+litp create -p /deployments/site1/clusters/tmp/nodes/node2093 -t node -o hostname='mn2093'
+
+litp inherit -p /deployments/site1/clusters/tmp/nodes/node2093/system -s /infrastructure/systems/system2093
+litp inherit -p /deployments/site1/clusters/tmp/nodes/node2093/os -s /software/profiles/rhel_6
+litp inherit -p /deployments/site1/clusters/tmp/nodes/node2093/storage_profile -s /infrastructure/storage/storage_profiles/profile_test2093
+litp create -p /deployments/site1/clusters/tmp/nodes/node2093/network_interfaces/if0 -t eth -o device_name='eth0' macaddress='BB:BB:BB:BB:BB:BB' ipaddress='192.168.0.2' network_name='mgmt'
+litp upgrade -p /deployments/site1
+
+litp create_plan
+assertCallbackTask _upgrade_callback_task /deployments/site1/clusters/cluster1/nodes/node2/upgrade
+assertNoCallbackTask _upgrade_callback_task /deployments/site1/clusters/tmp/nodes/node2093/upgrade

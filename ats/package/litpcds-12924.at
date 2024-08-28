@@ -1,0 +1,41 @@
+runLitpScript two-node-std.inc
+
+# create one instance of each disallowed package
+litp create -p /software/items/pkg0 -t package -o name=httpd arch=x86_64 version=1-1
+litp create -p /software/items/pkg1 -t package -o name=openssh-server arch=x86_64 version=1-1
+litp create -p /software/items/pkg2 -t package -o name=EXTRlitperlang_CXP9031333
+litp create -p /software/items/pkg3 -t package -o name=EXTRlitprabbitmqserver_CXP9031043 version=1-1
+litp create -p /software/items/pkg4 -t package -o name=EXTRlitpmcollective_CXP9031034 arch=x86_64
+litp create -p /software/items/pkg5 -t package -o name=EXTRlitpmcollectiveclient_CXP9031352
+litp create -p /software/items/pkg6 -t package -o name=EXTRlitppuppet_CXP9030746
+litp create -p /software/items/pkg7 -t package -o name=EXTRlitppuppetserver_CXP9030764
+
+# these ones should work
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg0 -s /software/items/pkg0
+litp inherit -p /ms/items/pkg1 -s /software/items/pkg1
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg2 -s /software/items/pkg2
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg3 -s /software/items/pkg3
+litp create_plan
+
+# these ones shouldn't
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg1 -s /software/items/pkg1
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg4 -s /software/items/pkg4
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg6 -s /software/items/pkg7
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg7 -s /software/items/pkg6
+
+litp inherit -p /ms/items/pkg0 -s /software/items/pkg0
+litp inherit -p /ms/items/pkg2 -s /software/items/pkg2
+litp inherit -p /ms/items/pkg3 -s /software/items/pkg3
+litp inherit -p /ms/items/pkg5 -s /software/items/pkg5
+
+# expect a validation error for each of them
+let __err0 --err_type ValidationError --err_message 'Create plan failed: Package httpd is managed by LITP'
+let __err1 --err_type ValidationError --err_message 'Create plan failed: Package openssh-server is managed by LITP'
+let __err2 --err_type ValidationError --err_message 'Create plan failed: Package EXTRlitperlang_CXP9031333 is managed by LITP'
+let __err3 --err_type ValidationError --err_message 'Create plan failed: Package EXTRlitprabbitmqserver_CXP9031043 is managed by LITP'
+let __err4 --err_type ValidationError --err_message 'Create plan failed: Package EXTRlitpmcollective_CXP9031034 is managed by LITP'
+let __err5 --err_type ValidationError --err_message 'Create plan failed: Package EXTRlitpmcollectiveclient_CXP9031352 is managed by LITP'
+let __err6 --err_type ValidationError --err_message 'Create plan failed: Package EXTRlitppuppet_CXP9030746 is managed by LITP'
+let __err7 --err_type ValidationError --err_message 'Create plan failed: Package EXTRlitppuppetserver_CXP9030764 is managed by LITP'
+
+assertError __err0 __err1 __err2 __err3 __err4 __err5 __err6 __err7 create_plan

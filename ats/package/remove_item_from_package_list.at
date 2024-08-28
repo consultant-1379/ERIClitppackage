@@ -1,0 +1,50 @@
+runLitpScript two-node-std.inc
+
+# now create a package list with some items and point first node to it
+litp create -t package-list -p /software/items/pkg_list1 -o name=pkgs
+litp create -t package -p /software/items/pkg_list1/packages/firefox -o name=firefox
+litp create -t package -p /software/items/pkg_list1/packages/telnet -o name=telnet
+litp create -t package -p /software/items/pkg_list1/packages/finger -o name=finger
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1 -s /software/items/pkg_list1
+
+assertState -p /software/items/pkg_list1/packages/firefox Initial
+assertState -p /software/items/pkg_list1/packages/telnet Initial
+assertState -p /software/items/pkg_list1/packages/finger Initial
+assertState -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1 Initial
+
+litp create_plan
+
+# check there are install tasks
+assertTask 0 package node1 /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1/packages/firefox Initial '' ensure=installed
+assertTask 0 package node1 /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1/packages/telnet Initial '' ensure=installed
+assertTask 0 package node1 /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1/packages/finger Initial '' ensure=installed
+
+litp run_plan
+
+# check installed
+
+assertState -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1 Applied
+assertState -p /software/items/pkg_list1/packages/firefox Applied
+assertState -p /software/items/pkg_list1/packages/telnet Applied
+assertState -p /software/items/pkg_list1/packages/finger Applied
+
+# point 2nd node to package list
+litp inherit -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg_list1 -s /software/items/pkg_list1
+
+# LITPCDS-12018: Allow removal of source with inherited items
+litp remove -p /software/items/pkg_list1/packages/finger
+assertState -p /software/items/pkg_list1/packages/finger ForRemoval
+assertState -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1/packages/finger ForRemoval
+
+assertState -p /deployments/site1/clusters/cluster1/nodes/node1/items/pkg_list1 Applied
+
+litp create_plan
+
+assertTask 0 package node2 /deployments/site1/clusters/cluster1/nodes/node2/items/pkg_list1/packages/firefox Initial '' ensure=installed
+assertTask 0 package node2 /deployments/site1/clusters/cluster1/nodes/node2/items/pkg_list1/packages/telnet Initial '' ensure=installed
+
+litp run_plan
+
+assertState -p /deployments/site1/clusters/cluster1/nodes/node2/items/pkg_list1 Applied
+assertState -p /software/items/pkg_list1/packages/firefox Applied
+assertState -p /software/items/pkg_list1/packages/telnet Applied
